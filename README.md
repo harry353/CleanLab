@@ -3,7 +3,6 @@
 </p>
 
 
-cat > README.md << 'EOF'
 # CleanLab
 *A modular laboratory for radio interferometric deconvolution.*
 
