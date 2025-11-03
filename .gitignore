@@ -1,0 +1,27 @@
+# -------------------------------------------------
+#  CleanLab .gitignore
+# -------------------------------------------------
+
+# Byte-compiled / cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+.env/
+.venv/
+env/
+venv/
+
+# CLEAN output FITS files (keep test inputs only)
+images/clean_*.fits
+images/residual_*.fits
+images/clean_cube.fits
+images/residual_cube.fits
+
+# Generated masks or temp files
+masks/*.npy
+output/
+notebooks/
+

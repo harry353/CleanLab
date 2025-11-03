@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+# =======================================================
+#  CLEAN — Command-line interface for CleanLab
+# -------------------------------------------------------
+#  Usage:
+#     ./CLEAN --dirty_image images/wsclean-dirty.fits \
+#              --psf wsclean-psf.fits \
+#              --threshold 2.0 \
+#              --max_iter 1000 \
+#              --mode clark
+#
+#  This wrapper calls run_clean.py and forwards all
+#  command-line arguments to it.
+# =======================================================
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PYTHON_SCRIPT="$SCRIPT_DIR/run_clean.py"
+
+# Detect Python binary
+if command -v python3 &>/dev/null; then
+    PYTHON_BIN=python3
+else
+    PYTHON_BIN=python
+fi
+
+# Display help
+if [[ "$1" == "--help" || "$1" == "-h" ]]; then
+    cat <<EOF
+CLEAN — CleanLab command-line wrapper
+
+Usage:
+  ./CLEAN --dirty_image <path> --psf <path> --threshold <value> --max_iter <value> --mode <strategy> [options]
+
+Required arguments:
+  --dirty_image       Path to the dirty image FITS file
+  --psf               Path to the PSF FITS file
+  --threshold         Noise threshold (sigma)
+  --max_iter          Maximum number of iterations
+  --mode              CLEAN strategy: clark | sinc | cluster | multi | spectral
+
+Optional arguments:
+  --mask              Mask type (none | manual | bgs)
+  --iter_per_cycle    Iterations per major cycle (default: 100)
+  --gain              Loop gain (default: 0.2)
+  --show_plots        Show intermediate plots
+  --print_results     Print statistics per cycle
+  --peak_detection    Peak detection method (regular | matched_filter | multi)
+  --debug_results     Enable debug output
+  -h, --help          Show this help message
+
+Examples:
+  ./CLEAN --dirty_image images/wsclean-dirty.fits --psf wsclean-psf.fits \\
+          --threshold 2 --max_iter 1000 --mode clark --show_plots
+
+EOF
+    exit 0
+fi
+
+# Check dependencies (basic sanity check)
+REQUIRED_PKGS=("numpy" "astropy" "matplotlib" "tqdm" "scipy")
+for pkg in "${REQUIRED_PKGS[@]}"; do
+    $PYTHON_BIN -c "import $pkg" 2>/dev/null || {
+        echo "Error: Required Python package '$pkg' is not installed."
+        echo "Install dependencies with:"
+        echo "  pip install numpy scipy matplotlib astropy tqdm tabulate"
+        exit 1
+    }
+done
+
+# Run the CleanLab Python driver
+$PYTHON_BIN "$PYTHON_SCRIPT" "$@"
+
