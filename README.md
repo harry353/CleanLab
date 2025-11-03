@@ -29,6 +29,7 @@ python run_clean.py \
   --gain 0.2 \
   --peak_detection regular \
   --debug_results False
+```
 
 ---
 
