@@ -24,11 +24,11 @@ python run_clean.py \
   --mode clark \
   --mask none \
   --iter_per_cycle 100 \
-  --show_plots True \
-  --print_results True \
+  --show_plots \
+  --print_results \
   --gain 0.2 \
   --peak_detection regular \
-  --debug_results False
+  --debug_results
 ```
 
 ---
