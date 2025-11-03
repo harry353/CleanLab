@@ -17,7 +17,7 @@ After installing the required dependencies:
 pip install numpy scipy matplotlib astropy tqdm tabulate
 
 python run_clean.py \
-  --dirty_image images/wsclean-dirty.fits \
+  --dirty_image images/dense.fits \
   --psf wsclean-psf.fits \
   --threshold 2.0 \
   --max_iter 1000 \
