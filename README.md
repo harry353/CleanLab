@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/CleanLab_logo.png" alt="CleanLab Logo" width="400"/>
+  <img src="docs/clean_labs_logo.png" alt="CleanLab Logo" width="400"/>
 </p>
 
 
