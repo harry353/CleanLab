@@ -9,6 +9,16 @@
 CleanLab is a flexible Python code implementing multiple variants of the CLEAN algorithm, from classic Clark CLEAN to spectral and parallel multi-peak approaches.
 It allows experimenting with peak detection, gain functions, and residual update strategies for both 2D images and 3D spectral cubes.
 
+The implementation of these algorithms is based on the original Högbom and Clark CLEAN algorithms:
+
+- Högbom, J. A. (1974). *Aperture Synthesis with a Non-Regular Distribution of Interferometer Baselines*.  
+  **Astronomy and Astrophysics Supplement Series**, 15, 417.  
+  [ADS link](https://ui.adsabs.harvard.edu/abs/1974A%26AS...15..417H/abstract)
+
+- Clark, B. G. (1980). *An Efficient Implementation of the Algorithm 'CLEAN'*.  
+  **Astronomy and Astrophysics**, 89, 377.  
+  [ADS link](https://ui.adsabs.harvard.edu/abs/1980A%26A....89..377C/abstract)
+
 ## Example Usage
 
 After installing the required dependencies:
