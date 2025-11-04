@@ -4,9 +4,9 @@ from scipy.signal import correlate
 from clean_utils import apply_mask as am
 from .factory import get_clean_strategy
 from clean_utils import gain_function as gf
-from clean_utils.utils import parse_gain, show_results, print_stats
 from clean_utils import detect_peak as dp
 from clean_utils import exit_conditions as ec
+from clean_utils.utils import parse_gain, show_results
 
 
 GAIN_MAP = {
@@ -20,6 +20,79 @@ def clean(
     mode, show_plots, print_results, gain, peak_detection="regular",
     debug_results=False
 ):
+    """
+    Perform 2D CLEAN deconvolution on a dirty image.
+
+    This function implements the classical CLEAN workflow used in radio
+    interferometric imaging. It iteratively subtracts scaled and shifted
+    versions of the point spread function (PSF) at the location of detected
+    peaks, building up a clean component image and reducing the residuals.
+    The process stops when the image reaches the specified noise threshold
+    or the maximum number of iterations.
+
+    Parameters
+    ----------
+    dirty_image : np.ndarray
+        Input dirty image to be deconvolved (2D array).
+    psf : np.ndarray
+        Point spread function (PSF) corresponding to the dirty image.
+    mask : str or np.ndarray
+        Mask defining regions allowed for cleaning. Accepts:
+        - `"bgs"` : interactively define background subtraction region.
+        - `"manual"` : manually select regions to clean.
+        - `"none"` : clean all pixels (default behavior).
+        - `np.ndarray` : boolean mask array.
+    threshold : float
+        Stopping criterion; cleaning halts when the peak signal-to-noise
+        ratio falls below this threshold.
+    max_iter : int
+        Maximum number of iterations to perform.
+    iter_per_cycle : int
+        Number of minor iterations between full residual recomputations
+        (major cycles).
+    mode : str
+        CLEAN strategy to use. Options correspond to available strategies
+        registered in `factory.get_clean_strategy`, e.g.:
+        `"clark"`, `"sinc"`, `"cluster"`, `"multi"`, etc.
+    show_plots : bool
+        If True, displays diagnostic plots of the dirty, clean, and residual images.
+    print_results : bool
+        If True, prints performance statistics and image metrics at completion.
+    gain : str, float, or callable
+        CLEAN gain parameter controlling subtraction strength per iteration.
+        Accepts:
+        - float constant (e.g. `0.1`),
+        - string (e.g. `"logistic"`, `"constant:0.05"`),
+        - or callable gain function.
+    peak_detection : {"regular", "matched", "multi"}, optional
+        Method for detecting the next CLEAN peak:
+        - `"regular"` : select the global maximum within the mask.
+        - `"matched"` : use PSF-matched filtering to enhance detection.
+        - `"multi"` : detect multiple peaks simultaneously per iteration.
+    debug_results : bool, optional
+        If True, enables debug plotting and per-step diagnostics within the
+        selected CLEAN strategy (default: False).
+
+    Returns
+    -------
+    comps_image : np.ndarray
+        Clean component image representing the reconstructed sky model.
+    residual_image : np.ndarray
+        Residual image after PSF subtraction.
+    iter : int
+        Number of iterations completed before stopping.
+
+    Notes
+    -----
+    - This function supports interactive mask creation and multiple
+      peak-detection modes for testing advanced CLEAN variants.
+    - The active CLEAN algorithm is selected dynamically via
+      `get_clean_strategy(mode, psf, mask, config)`, allowing easy switching
+      between implementations (e.g., Clark, Sinc, Cluster CLEAN, etc.).
+    - Results can be visualized (`show_plots=True`) or printed
+      (`print_results=True`) after the run completes.
+    """
+
     # -----------------------------
     # Mask selection
     # -----------------------------

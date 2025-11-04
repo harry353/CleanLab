@@ -5,7 +5,46 @@ from scipy.optimize import curve_fit
 from tabulate import tabulate
 from matplotlib.patches import Ellipse
 
+
 def twoD_gaussian(xy, amplitude, X0, Y0, sigma_x, sigma_y, theta, offset):
+    """
+    Two-dimensional Gaussian model function.
+
+    Computes the value of a rotated 2D Gaussian surface given coordinate
+    grids and parameter values. This analytic form is used for fitting
+    compact sources in residual images during CLEAN deconvolution.
+
+    Parameters
+    ----------
+    xy : tuple of np.ndarray
+        Tuple (x, y) of meshgrid arrays defining pixel coordinates.
+    amplitude : float
+        Peak amplitude of the Gaussian.
+    X0, Y0 : float
+        Center coordinates of the Gaussian.
+    sigma_x, sigma_y : float
+        Standard deviations of the Gaussian along the x and y axes.
+    theta : float
+        Rotation angle of the Gaussian in radians.
+    offset : float
+        Constant background offset.
+
+    Returns
+    -------
+    g : np.ndarray
+        Flattened array of model values matching the shape of `x` and `y`.
+
+    Notes
+    -----
+    The rotated Gaussian is defined as:
+
+    .. math::
+
+        G(x, y) = A \exp\left(-\left[a(x-X_0)^2 + 2b(x-X_0)(y-Y_0)
+        + c(y-Y_0)^2\right]\right) + O
+
+    where :math:`a`, :math:`b`, and :math:`c` depend on the rotation angle.
+    """
     x, y = xy
     X0 = float(X0)
     Y0 = float(Y0)
@@ -15,7 +54,44 @@ def twoD_gaussian(xy, amplitude, X0, Y0, sigma_x, sigma_y, theta, offset):
     g = offset + amplitude * np.exp(-(a * (x - X0) ** 2 + 2 * b * (x - X0) * (y - Y0) + c * (y - Y0) ** 2))
     return g.ravel()
 
+
 def gauss(residual, my, mx, fit_image_size=21, true_params=None, debug=False):
+    """
+    Fit a 2D Gaussian to a residual image patch around a detected peak.
+
+    Extracts a square region centered on a detected peak and performs a
+    non-linear least-squares fit to a rotated 2D Gaussian model. The
+    fitted parameters can then be used for subpixel centroid refinement
+    of point sources during CLEAN.
+
+    Parameters
+    ----------
+    residual : np.ndarray
+        2D residual image containing the source peak.
+    my, mx : int
+        Pixel coordinates (y, x) of the detected peak.
+    fit_image_size : int, optional
+        Half-size of the fitting window in pixels (default: 21).
+    true_params : tuple, optional
+        True Gaussian parameters for comparison when debugging.
+        Expected order: (amplitude, X0, Y0, sigma_x, sigma_y, theta, offset).
+    debug : bool, optional
+        If True, displays contour plots, fit diagnostics, and parameter
+        comparison tables (default: False).
+
+    Returns
+    -------
+    popt : np.ndarray
+        Array of best-fit Gaussian parameters:
+        [amplitude, X0, Y0, sigma_x, sigma_y, theta, offset].
+
+    Notes
+    -----
+    - Fitting is performed using SciPy’s :func:`curve_fit`.
+    - Parameter bounds enforce positive amplitudes and valid rotations.
+    - If `debug=True`, the function plots 1σ–3σ ellipses and reports
+      fit accuracy relative to provided `true_params`.
+    """
     start_time = time.time()
     
     y_min = max(0, my - fit_image_size)
@@ -36,17 +112,12 @@ def gauss(residual, my, mx, fit_image_size=21, true_params=None, debug=False):
     )
 
     popt[5] = popt[5] % np.pi
-    # if popt[3] < popt[4]:
-    #     popt[3], popt[4] = popt[4], popt[3]
-    #     popt[5] = (popt[5] + np.pi / 2) % np.pi
-
     fitted_ps_patch = twoD_gaussian((x, y), *popt).reshape(ps_patch.shape)
-
     elapsed = time.time() - start_time
 
     x0, y0 = popt[1], popt[2]
     sigma_x, sigma_y = popt[3], popt[4]
-    theta = popt[5] + np.pi / 2  # radians
+    theta = popt[5] + np.pi / 2
 
     if debug:
         # Plot 1σ, 2σ, 3σ ellipses
@@ -66,10 +137,8 @@ def gauss(residual, my, mx, fit_image_size=21, true_params=None, debug=False):
             )
             ax.add_patch(ell)
 
-        # Also plot centers
         ax.plot(x0, y0, 'r+', markersize=12, label='Fit center')
         ax.plot(mx, my, 'c+', markersize=10, label='Peak')
-
         ax.legend()
         plt.tight_layout()
         plt.show()
@@ -94,23 +163,40 @@ def gauss(residual, my, mx, fit_image_size=21, true_params=None, debug=False):
             print("\nFit Results:")
             print(tabulate(table, headers=["Parameter", "Original", "Fitted", "Error (%)"], tablefmt="github"))
 
-            # fig, axes = plt.subplots(1, 2, figsize=(10, 5))
-            # axes[0].imshow(ps_patch, origin='lower')
-            # axes[0].set_title("Original ps_patch")
-            # axes[1].imshow(fitted_ps_patch, origin='lower')
-            # axes[1].set_title("Fitted Gaussian")
-            # plt.show()
-
     return popt
 
 
 def generate_test_data(size=51):
+    """
+    Generate synthetic 2D Gaussian test data.
+
+    Creates a noisy 2D Gaussian field with random parameters for testing
+    the fitting performance of :func:`gauss`.
+
+    Parameters
+    ----------
+    size : int, optional
+        Size of the generated image in pixels (default: 51).
+
+    Returns
+    -------
+    gaussian : np.ndarray
+        Simulated 2D Gaussian image with added Gaussian noise.
+    true_params : tuple
+        True Gaussian parameters used to generate the data:
+        (amplitude, X0, Y0, sigma_x, sigma_y, theta, offset).
+
+    Notes
+    -----
+    - The orientation angle `theta` is set to −π/4 by default for reproducibility.
+    - Random noise with σ = 0.1 is added to the final image.
+    """
     amplitude = np.random.uniform(3, 10)
     X0 = np.random.uniform(size * 0.3, size * 0.7)
     Y0 = np.random.uniform(size * 0.3, size * 0.7)
     sigma_x = np.random.uniform(2, 10)
     sigma_y = np.random.uniform(2, 10)
-    theta = -np.pi / 4 #np.random.uniform(0, np.pi)
+    theta = -np.pi / 4
     offset = np.random.uniform(0, 2)
 
     x = np.arange(size)
@@ -122,9 +208,9 @@ def generate_test_data(size=51):
     c = (np.sin(theta) ** 2) / (2 * sigma_x ** 2) + (np.cos(theta) ** 2) / (2 * sigma_y ** 2)
 
     gaussian = offset + amplitude * np.exp(-(a * (x - X0) ** 2 + 2 * b * (x - X0) * (y - Y0) + c * (y - Y0) ** 2))
-
     noise = np.random.normal(0, 0.1, gaussian.shape)
     return gaussian + noise, (amplitude, X0, Y0, sigma_x, sigma_y, theta, offset)
+
 
 if __name__ == "__main__":
     data, true_params = generate_test_data()

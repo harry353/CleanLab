@@ -7,7 +7,33 @@ import time
 
 
 def gaussian_2d(size, x0, y0, sigma_x, sigma_y, amplitude=1.0):
-    """Return a 2D Gaussian image."""
+    """
+    Generate a 2D Gaussian distribution.
+
+    Creates a 2D Gaussian array centered at (x0, y0) with specified
+    standard deviations along each axis and peak amplitude.
+
+    Parameters
+    ----------
+    size : int
+        Size of the square output array in pixels.
+    x0, y0 : float
+        Center coordinates of the Gaussian (in pixels).
+    sigma_x, sigma_y : float
+        Standard deviations of the Gaussian along x and y axes, respectively.
+    amplitude : float, optional
+        Peak amplitude of the Gaussian (default: 1.0).
+
+    Returns
+    -------
+    g : np.ndarray
+        2D array of shape (size, size) representing the Gaussian intensity profile.
+
+    Notes
+    -----
+    This function forms the basis for simulating diffuse emission components
+    in synthetic sky models used for CLEAN testing.
+    """
     y, x = np.indices((size, size))
     g = amplitude * np.exp(-(((x - x0) ** 2) / (2 * sigma_x ** 2) +
                              ((y - y0) ** 2) / (2 * sigma_y ** 2)))
@@ -15,7 +41,30 @@ def gaussian_2d(size, x0, y0, sigma_x, sigma_y, amplitude=1.0):
 
 
 def compute_gaussian_chunk(chunk_args):
-    """Generate a chunk of diffuse Gaussian components for one channel."""
+    """
+    Generate a partial image of Gaussian components for one cube channel.
+
+    This helper function computes the summed contribution of several
+    Gaussian sources, used for parallel generation of large model cubes.
+
+    Parameters
+    ----------
+    chunk_args : tuple
+        Tuple containing:
+        - coords_chunk : np.ndarray
+            Array of (x, y) positions of sources.
+        - amps_chunk : np.ndarray
+            Corresponding amplitudes of sources.
+        - sigmas_chunk : np.ndarray
+            Standard deviations for each Gaussian [(σx, σy) per source].
+        - image_size : int
+            Size of the output image in pixels.
+
+    Returns
+    -------
+    contrib : np.ndarray
+        2D array representing the summed contribution from all sources in the chunk.
+    """
     coords_chunk, amps_chunk, sigmas_chunk, image_size = chunk_args
     contrib = np.zeros((image_size, image_size))
     for (x0, y0), amp, (sx, sy) in zip(coords_chunk, amps_chunk, sigmas_chunk):
@@ -25,10 +74,37 @@ def compute_gaussian_chunk(chunk_args):
 
 def generate_dynamic_diffuse_cube(n_sources, image_size, n_channels=10, num_workers=4):
     """
-    Generate a 3D spectral cube (nchan × ny × nx) of diffuse Gaussians
-    that vary in amplitude, size, and position across channels.
+    Generate a synthetic 3D spectral cube of diffuse Gaussian emission.
+
+    Creates a dynamic cube of shape (nchan, ny, nx) containing multiple
+    diffuse Gaussian sources whose brightness, width, and position vary
+    with frequency. This can be used as a realistic test dataset for
+    multi-channel CLEAN algorithms and deconvolution benchmarking.
+
+    Parameters
+    ----------
+    n_sources : int
+        Number of Gaussian sources to generate in each channel.
+    image_size : int
+        Size of each image plane (in pixels).
+    n_channels : int, optional
+        Number of spectral channels to simulate (default: 10).
+    num_workers : int, optional
+        Number of parallel processes used for generating Gaussian chunks (default: 4).
+
+    Returns
+    -------
+    cube : np.ndarray
+        Synthetic 3D image cube of shape (n_channels, image_size, image_size).
+
+    Notes
+    -----
+    - Each channel introduces slight variations in amplitude, position,
+      and width to emulate realistic diffuse spectral structure.
+    - Parallel processing is used to speed up Gaussian summation.
+    - The resulting cube can be convolved with a PSF to produce
+      a corresponding dirty cube.
     """
-    # Base Gaussian properties
     base_coords = np.random.uniform(0, image_size, (n_sources, 2))
     base_amps = np.random.uniform(0.5, 1.0, n_sources)
     base_sigmas = np.random.uniform(4, 12, (n_sources, 2))
@@ -41,11 +117,11 @@ def generate_dynamic_diffuse_cube(n_sources, image_size, n_channels=10, num_work
         amps = base_amps * (1 + 0.8 * np.sin(2 * np.pi * f + np.random.uniform(0, np.pi)))
         sigmas = base_sigmas * (1 + 0.3 * np.random.randn(*base_sigmas.shape))
 
-        # Add small random shifts in position per channel
+        # Add small random shifts per channel
         coords = base_coords + np.random.uniform(-1.5, 1.5, base_coords.shape)
         coords = np.clip(coords, 0, image_size - 1)
 
-        # Split sources into chunks for parallel processing
+        # Split sources into parallel chunks
         chunks = []
         chunk_size = n_sources // num_workers
         for i in range(num_workers):
@@ -57,14 +133,19 @@ def generate_dynamic_diffuse_cube(n_sources, image_size, n_channels=10, num_work
         with concurrent.futures.ProcessPoolExecutor(max_workers=num_workers) as ex:
             results = list(ex.map(compute_gaussian_chunk, chunks))
 
-        channel_image = np.sum(results, axis=0)
-        cube[ci] = channel_image
+        cube[ci] = np.sum(results, axis=0)
 
     return cube
 
 
-# ---------------- MAIN ----------------
 if __name__ == "__main__":
+    """
+    Example script for generating a synthetic diffuse spectral cube.
+
+    Produces a dynamic model cube of Gaussian emission and its corresponding
+    dirty cube by convolution with a PSF. Both cubes are saved as FITS files
+    and displayed for visual inspection.
+    """
     ps_n = 10
     image_size = 256
     n_channels = 16
@@ -89,7 +170,7 @@ if __name__ == "__main__":
     hdu_model.writeto(model_path, overwrite=True)
     print(f"Saved dynamic model cube to {model_path}")
 
-    # --- Load PSF from parent directory ---
+    # --- Load PSF ---
     psf = fits.getdata("./wsclean-psf.fits", ext=0)
     if psf.ndim == 4:
         psf = psf[-1, -1]
@@ -97,9 +178,9 @@ if __name__ == "__main__":
         psf = psf[-1]
     psf = psf.astype("float64")
     psf /= np.sum(psf)
-    print(f"Loaded PSF from ../wsclean-psf.fits with shape {psf.shape}")
+    print(f"Loaded PSF with shape {psf.shape}")
 
-    # --- Convolve each channel with PSF ---
+    # --- Convolve cube with PSF to create dirty cube ---
     dirty_cube = np.zeros_like(cube)
     for i in range(cube.shape[0]):
         dirty_cube[i] = correlate(cube[i], psf, mode="same")

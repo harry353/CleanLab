@@ -1,11 +1,12 @@
+from astropy.io import fits
 import numpy as np
 from tqdm import tqdm
 from scipy.signal import correlate
 from clean_utils import gain_function as gf
-from clean_utils.utils import parse_gain, show_results, print_stats
 from clean_utils import detect_peak as dp
 from clean_utils import exit_conditions as ec
 from .factory import get_clean_strategy
+from clean_utils.utils import parse_gain, show_results
 
 
 GAIN_MAP = {
@@ -19,8 +20,61 @@ def clean_spectral(
     show_plots, print_results, gain, debug_results=False
 ):
     """
-    Spectral CLEAN: iterates through frequency channels independently.
+    Perform spectral CLEAN deconvolution on a 3D image cube.
+
+    This function applies the CLEAN algorithm independently to each
+    frequency channel of a spectral cube. The algorithm iteratively
+    subtracts scaled and shifted versions of the point spread function (PSF)
+    from the dirty cube to reconstruct the underlying source structure
+    and produce a clean component cube and a residual cube.
+
+    Parameters
+    ----------
+    dirty_cube : np.ndarray
+        Input dirty image cube of shape (nchan, ny, nx).
+        Each slice along the first axis corresponds to a frequency channel.
+    psf : np.ndarray
+        2D point spread function (PSF) used for deconvolution.
+    threshold : float
+        Noise stopping threshold; cleaning stops when the peak signal-to-noise
+        ratio falls below this value.
+    max_iter : int
+        Maximum number of CLEAN iterations to perform.
+    iter_per_cycle : int
+        Number of iterations per major cycle (after which a full residual
+        recomputation via convolution is performed).
+    show_plots : bool
+        If True, display visual diagnostic plots after cleaning.
+    print_results : bool
+        If True, print performance metrics and basic statistics at the end.
+    gain : str, float, or callable
+        CLEAN loop gain. May be specified as:
+        - a float constant,
+        - a string such as "logistic" or "constant:0.1", or
+        - a custom callable gain function.
+    debug_results : bool, optional
+        If True, enables extra diagnostic output and visualization from
+        the active CLEAN strategy (default: False).
+
+    Returns
+    -------
+    comps_cube : np.ndarray
+        Clean component cube of the same shape as `dirty_cube`.
+        Represents the recovered model of the sky brightness.
+    residual_cube : np.ndarray
+        Residual cube after subtraction of the CLEAN components.
+    iter : int
+        The number of iterations performed before reaching the stopping condition.
+
+    Notes
+    -----
+    - This implementation currently treats each spectral channel independently,
+      using a shared PSF for all channels.
+    - The results are automatically saved as FITS files:
+        * `images/clean_cube.fits`
+        * `images/residual_cube.fits`
     """
+
     nchan = dirty_cube.shape[0]
     comps_cube = np.zeros_like(dirty_cube)
     residual_cube = dirty_cube.copy()
@@ -70,8 +124,6 @@ def clean_spectral(
     if hasattr(strategy, "finalize"):
         strategy.finalize()
 
-    from astropy.io import fits
-
     # -----------------------------
     # Save results for spectral cube
     # -----------------------------
@@ -85,7 +137,6 @@ def clean_spectral(
     print(f"Saved residual cube to: {residual_path}")
 
     if print_results:
-        from clean_utils.utils import print_stats
         # Use first channel's mask (dummy)
         mask = np.ones_like(dirty_cube[0], dtype=bool)
         print_stats(comps_cube[0], psf, residual_cube[0], dirty_cube[0], iter, mask)

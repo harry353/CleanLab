@@ -4,7 +4,87 @@ import numpy as np
 from clean import clean
 from clean.core_spectral import clean_spectral
 
+
 def main():
+    """
+    Command-line interface for running CLEAN deconvolution using CleanLab.
+
+    Provides a unified command-line entry point to run various CLEAN algorithms
+    on 2D images or 3D spectral cubes. Supports multiple strategies including
+    Clark, Sinc, Cluster, Multi-peak, and Spectral CLEAN, each configurable via
+    command-line arguments.
+
+    The script automatically loads the input dirty image and PSF, performs the
+    deconvolution according to the selected mode, and saves the resulting clean
+    and residual images as FITS files.
+
+    Command-line Arguments
+    ----------------------
+    --dirty_image : str
+        Path to the dirty image or spectral cube FITS file.
+    --psf : str
+        Path to the PSF FITS file.
+    --threshold : float
+        Noise stopping threshold (in sigma).
+    --max_iter : int
+        Maximum number of CLEAN iterations to perform.
+    --mode : str
+        CLEAN strategy to use. One of:
+        ["clark", "sinc", "cluster", "multi", "spectral"].
+    --mask : str, optional
+        Mask type to apply before cleaning. Options:
+        "none", "manual", or "bgs" (background subtraction).
+        Default: "none".
+    --iter_per_cycle : int, optional
+        Number of iterations per major cycle (default: 100).
+    --show_plots : flag
+        If set, display intermediate visualizations during execution.
+    --print_results : flag
+        If set, print summary statistics after completion.
+    --gain : float, optional
+        Loop gain or gain function (default: 0.2).
+    --peak_detection : str, optional
+        Peak detection method. Options: "regular", "matched", "multi".
+        Default: "regular".
+    --debug_results : flag
+        Enable detailed diagnostic plots and internal debugging.
+
+    Workflow
+    --------
+    - Loads the input dirty image/cube and PSF from FITS files.
+    - Chooses between 2D or spectral CLEAN mode depending on `--mode`.
+    - Runs the deconvolution using the selected strategy.
+    - Writes the clean and residual images/cubes to the `images/` directory.
+
+    Output
+    ------
+    - For 2D modes:
+        * `images/clean_image.fits`
+        * `images/residual_image.fits`
+    - For spectral (3D) mode:
+        * `images/clean_cube.fits`
+        * `images/residual_cube.fits`
+
+    Example
+    -------
+    Run a standard Clark CLEAN on a 2D dirty image:
+
+        $ ./CLEAN --dirty_image images/dense.fits \\
+                  --psf wsclean-psf.fits \\
+                  --threshold 3 \\
+                  --max_iter 500 \\
+                  --mode clark \\
+                  --gain 0.2 \\
+                  --show_plots
+
+    Notes
+    -----
+    - The script automatically squeezes higher-dimensional FITS data
+      (e.g., Stokes and frequency axes) into 2D or 3D arrays as needed.
+    - The output FITS files are overwritten if they already exist.
+    - For advanced users, the `--gain` argument can also refer to a
+      dynamic gain function (e.g., “logistic”).
+    """
     parser = argparse.ArgumentParser(description="Run CLEAN deconvolution using CleanLab.")
     parser.add_argument("--dirty_image", required=True, help="Path to the dirty image or cube FITS file.")
     parser.add_argument("--psf", required=True, help="Path to the PSF FITS file.")
@@ -41,7 +121,6 @@ def main():
             print_results=args.print_results,
             debug_results=args.debug_results,
         )
-        # Save results to FITS
         fits.writeto("images/clean_cube.fits", clean_image, overwrite=True)
         fits.writeto("images/residual_cube.fits", residual_image, overwrite=True)
     else:
@@ -60,11 +139,11 @@ def main():
             peak_detection=args.peak_detection,
             debug_results=args.debug_results,
         )
-        # Save results to FITS
         fits.writeto("images/clean_image.fits", clean_image, overwrite=True)
         fits.writeto("images/residual_image.fits", residual_image, overwrite=True)
 
     print(f"\nCLEAN completed in {n_iter} iterations.")
+
 
 if __name__ == "__main__":
     main()

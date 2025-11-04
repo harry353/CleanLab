@@ -1,7 +1,38 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+
 def bg_subtr(image, output_mask_path="auto_mask.npy"):
+    """
+    Create a background-subtracted mask using a rectangular region.
+
+    This interactive function allows the user to draw a rectangular region
+    over a displayed image to define a background area. The mean intensity
+    of this region is used to compute a brightness threshold (5× the
+    background mean), generating a binary mask that isolates bright sources.
+
+    The resulting mask is displayed alongside the original image and
+    automatically saved as a NumPy `.npy` file.
+
+    Parameters
+    ----------
+    image : np.ndarray
+        Input 2D image array to apply masking on.
+    output_mask_path : str, optional
+        File path where the binary mask will be saved (default: "auto_mask.npy").
+
+    Raises
+    ------
+    RuntimeError
+        If no background region is selected before closing the window.
+
+    Notes
+    -----
+    - Left-click and drag to draw a rectangle around a background region.
+    - Press `'q'` to quit at any time.
+    - The generated mask keeps pixels above `5 × mean(background)` intensity.
+    - The output mask is saved as a NumPy binary file (`.npy`).
+    """
     fig, ax = plt.subplots()
     ax.imshow(image, vmin=image.min(), vmax=image.max())
     ax.set_title("Draw a rectangle over background region (press 'q' to finish)")
@@ -70,6 +101,29 @@ def bg_subtr(image, output_mask_path="auto_mask.npy"):
 
 
 def manual(image, output_mask_path="manual_mask.npy"):
+    """
+    Manually define circular regions to keep using mouse interaction.
+
+    This interactive masking tool allows the user to draw circular regions
+    over the displayed image to define areas that should be *kept* for further
+    CLEANing or analysis. The selected circles are combined into a boolean
+    mask that is displayed and saved as a `.npy` file.
+
+    Parameters
+    ----------
+    image : np.ndarray
+        Input 2D image array to apply masking on.
+    output_mask_path : str, optional
+        File path where the binary mask will be saved (default: "manual_mask.npy").
+
+    Notes
+    -----
+    - Click and drag to draw circular regions.
+    - Press `'q'` to finish the selection and close the window.
+    - All selected circles are combined into one final binary mask.
+    - The resulting mask highlights the selected regions in red and is saved
+      as a NumPy binary file (`.npy`).
+    """
     circles = []
     current_center = None
     current_circle_artist = None
