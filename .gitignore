@@ -19,6 +19,7 @@ images/clean_*.fits
 images/residual_*.fits
 images/clean_cube.fits
 images/residual_cube.fits
+one_iter_test.py
 
 # Generated masks or temp files
 masks/*.npy

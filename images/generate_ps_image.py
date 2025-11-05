@@ -166,7 +166,7 @@ if __name__ == "__main__":
     interpolation for subpixel positioning, and convolves the result
     with a PSF to create a dirty image saved as a FITS file.
     """
-    ps_n = 50
+    ps_n = 3
     image_size = 128
 
     start_time = time.perf_counter()
@@ -183,7 +183,7 @@ if __name__ == "__main__":
     ps_image_4d = ps_image[np.newaxis, np.newaxis, :, :]
 
     # Save the result as FITS
-    fits.writeto("ps.fits", ps_image_4d.astype("f8"), overwrite=True)
+    fits.writeto("three.fits", ps_image_4d.astype("f8"), overwrite=True)
 
     plt.imshow(ps_image, vmin=ps_image.min(), vmax=ps_image.max())
     plt.title("Generated Synthetic Dirty Image")

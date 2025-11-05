@@ -6,7 +6,7 @@ from .factory import get_clean_strategy
 from clean_utils import gain_function as gf
 from clean_utils import detect_peak as dp
 from clean_utils import exit_conditions as ec
-from clean_utils.utils import parse_gain, show_results
+from clean_utils.utils import parse_gain, show_results, print_stats
 
 
 GAIN_MAP = {
